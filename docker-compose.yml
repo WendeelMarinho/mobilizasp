@@ -1,0 +1,11 @@
+services:
+  mobilizasp:
+    build: .
+    container_name: mobilizasp
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./.waba-session:/app/.waba-session
+    restart: unless-stopped
