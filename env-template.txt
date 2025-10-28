@@ -1,0 +1,13 @@
+# Copie este conteúdo para criar o arquivo .env
+# Execute: cp env-template.txt .env
+
+PORT=4001
+SPTRANS_TOKEN=32e510fe041713b2666390208f8dc56a433cb908bbe1a40fad72a547f8bf405c
+GEMINI_API_KEY=AIzaSyAXtuGDIoWrf1_mHCcjeDq7fO_saQ28hcE
+WA_SESSION_DIR=.waba-session
+LOG_LEVEL=info
+HTTP_TIMEOUT_MS=10000
+HTTP_RETRY_MAX=2
+RATE_LIMIT_RPS=5
+GOOGLE_MAPS_API_KEY=
+

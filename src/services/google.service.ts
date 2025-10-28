@@ -8,9 +8,12 @@ const GMAPS = 'https://maps.googleapis.com/maps/api';
 export type LatLng = { lat: number; lng: number };
 
 export async function geocode(address: string): Promise<LatLng | null> {
+  const apiKey = (config as any).maps?.apiKey || config.google.apiKey;
+  if (!apiKey) return null;
+  
   const url = `${GMAPS}/geocode/json`;
   const { data } = await axios.get(url, {
-    params: { address, key: config.google.apiKey, region: 'br' },
+    params: { address, key: apiKey, region: 'br' },
     timeout: 10000
   });
   const res = data?.results?.[0]?.geometry?.location;
@@ -19,10 +22,13 @@ export async function geocode(address: string): Promise<LatLng | null> {
 }
 
 export async function placesBusStopsNearby(center: LatLng, radius = 500): Promise<any[]> {
+  const apiKey = (config as any).maps?.apiKey || config.google.apiKey;
+  if (!apiKey) return [];
+  
   const url = `${GMAPS}/place/nearbysearch/json`;
   const { data } = await axios.get(url, {
     params: {
-      key: config.google.apiKey,
+      key: apiKey,
       location: `${center.lat},${center.lng}`,
       radius,
       type: 'bus_station',
@@ -34,6 +40,9 @@ export async function placesBusStopsNearby(center: LatLng, radius = 500): Promis
 }
 
 export async function directionsTransit(origin: string | LatLng, destination: string | LatLng) {
+  const apiKey = (config as any).maps?.apiKey || config.google.apiKey;
+  if (!apiKey) throw new Error('Google Maps API key não configurada');
+  
   const url = `${GMAPS}/directions/json`;
 
   const toParam = (v: string | LatLng) =>
@@ -41,7 +50,7 @@ export async function directionsTransit(origin: string | LatLng, destination: st
 
   const { data } = await axios.get(url, {
     params: {
-      key: config.google.apiKey,
+      key: apiKey,
       origin: toParam(origin),
       destination: toParam(destination),
       mode: 'transit',

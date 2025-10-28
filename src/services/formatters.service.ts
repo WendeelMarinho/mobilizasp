@@ -18,23 +18,67 @@ export function truncate(str: string, max = 1200) {
 export function formatLinha(termo: string, data: any) {
   const arr = Array.isArray(data) ? data : [];
   if (!arr.length) return `Nenhuma linha encontrada para "${termo}".`;
-  return truncate(JSON.stringify(arr, null, 0));
+
+  const lines = arr.slice(0, 10).map((l: any) => {
+    const lt = l.lt || '';
+    const tl = l.tl ? `-${l.tl}` : '';
+    const tp = l.tp || '';
+    const ts = l.ts || '';
+    return `*${lt}${tl}* ${tp} → ${ts}`;
+  });
+
+  return `Linhas encontradas para "${termo}":\n\n${lines.join('\n')}`;
 }
 
 export function formatPosicao(linha: string, data: any) {
   const qtd = Array.isArray(data?.vs) ? data.vs.length : (Array.isArray(data?.l?.[0]?.vs) ? data.l[0].vs.length : 0);
-  const head = `Posição da linha ${linha} — veículos: ${qtd}`;
-  return head + '\n' + truncate(JSON.stringify(data));
+  
+  if (qtd === 0) {
+    return `Não há veículos da linha ${linha} em circulação no momento.`;
+  }
+
+  const vehicles = Array.isArray(data?.vs) ? data.vs : (Array.isArray(data?.l?.[0]?.vs) ? data.l[0].vs : []);
+  const positions = vehicles.map((v: any, idx: number) => {
+    const p = v.p || 'N/A';
+    const a = v.a ? ' (alerta)' : '';
+    return `${idx + 1}. Ônibus ${p}${a}`;
+  });
+
+  return `*Linha ${linha}* — ${qtd} veículo(s)\n\n${positions.join('\n')}`;
 }
 
 export function formatPrevisao(parada: string, linha: string | undefined, data: any) {
   // A API às vezes vem como data.p.l[], às vezes data.l[]
-  const linhas = Array.isArray(data?.p?.l) ? data.p.l.length : (Array.isArray(data?.l) ? data.l.length : 0);
-  const label = linha ? `parada ${parada} / linha ${linha}` : `parada ${parada}`;
-  if (!linhas) {
-    return `Previsão para ${label} — nenhuma previsão no momento.\nSe for linha específica, pode não atender esse ponto agora.`;
+  const linhas = Array.isArray(data?.p?.l) ? data.p.l : (Array.isArray(data?.l) ? data.l : []);
+  
+  if (!linhas.length) {
+    const label = linha ? `linha ${linha} na parada ${parada}` : `parada ${parada}`;
+    return `Não encontrei previsão para ${label} agora.\nSe for linha específica, pode não atender esse ponto.`;
   }
-  return `Previsão para ${label} — linhas no payload: ${linhas}\n${truncate(JSON.stringify(data))}`;
+
+  const previsoes = linhas.map((l: any, idx: number) => {
+    const lineCode = l.c || l.lt || 'N/A';
+    const dest = l.lt0 || l.lt1 || '';
+    const arrivals = Array.isArray(l.vs) ? l.vs : [];
+    
+    if (arrivals.length === 0) {
+      return `${lineCode} ${dest} — sem previsão`;
+    }
+
+    const times = arrivals.map((v: any) => {
+      const t = v.t || '';
+      const p = v.p || '';
+      return `chega em ${t}min (veículo ${p})`;
+    });
+
+    return `*${lineCode}* ${dest}\n${times.join(', ')}`;
+  });
+
+  const header = linha 
+    ? `Previsão — Linha ${linha} na parada ${parada}`
+    : `Previsão — Parada ${parada}`;
+
+  return `${header}\n\n${previsoes.join('\n\n')}`;
 }
 
 /* -------------------------- Google Directions --------------------------- */

@@ -11,20 +11,32 @@ const BASE = 'http://api.olhovivo.sptrans.com.br/v2.1';
 
 // Cliente Axios com suporte a cookies (sessão SPTrans)
 const jar = new CookieJar();
-const client: AxiosInstance = wrapper(axios.create({
-  baseURL: BASE,
-  jar,
-  withCredentials: true,
-  timeout: 10_000
-}));
+let client: AxiosInstance;
 
-axiosRetry(client, {
-  retries: 3,
-  retryDelay: axiosRetry.exponentialDelay,
-  retryCondition: (e) =>
-    axiosRetry.isNetworkOrIdempotentRequestError(e) ||
-    e.response?.status === 429
-});
+function createClient() {
+  if (!client) {
+    client = wrapper(axios.create({
+      baseURL: BASE,
+      jar,
+      withCredentials: true,
+      timeout: config.http.timeoutMs
+    }));
+
+    axiosRetry(client, {
+      retries: config.http.retryMax,
+      retryDelay: axiosRetry.exponentialDelay,
+      retryCondition: (e: any) => {
+        // Retry on network errors, timeouts, and server errors
+        return axiosRetry.isNetworkOrIdempotentRequestError(e) ||
+               e.code === 'ECONNRESET' ||
+               e.code === 'ETIMEDOUT' ||
+               (e.response?.status && e.response.status >= 500) ||
+               e.response?.status === 429;
+      }
+    });
+  }
+  return client;
+}
 
 let authed = false;
 
@@ -32,8 +44,9 @@ async function ensureAuth() {
   if (authed) return;
   if (!config.sptrans.token) throw new Error('SPTRANS_TOKEN ausente');
 
+  const clientInstance = createClient();
   const url = `/Login/Autenticar?token=${encodeURIComponent(config.sptrans.token)}`;
-  const { data } = await client.post(url);
+  const { data } = await clientInstance.post(url);
 
   if (data === true) {
     authed = true;
@@ -43,31 +56,36 @@ async function ensureAuth() {
   }
 }
 
+async function getClient() {
+  await ensureAuth();
+  return createClient();
+}
+
 /** Buscar linhas por termo/código (usa o endpoint Linha/Buscar). */
 export async function buscarLinhaPorCodigo(termos: string) {
-  await ensureAuth();
-  const { data } = await client.get(`/Linha/Buscar?termosBusca=${encodeURIComponent(termos)}`);
+  const clientInstance = await getClient();
+  const { data } = await clientInstance.get(`/Linha/Buscar?termosBusca=${encodeURIComponent(termos)}`);
   return data; // array de linhas
 }
 
 /** Posição da frota por código numérico da linha (cl). */
 export async function posicaoPorCodigoLinha(codigoLinha: string) {
-  await ensureAuth();
-  const { data } = await client.get(`/Posicao/Linha?codigoLinha=${encodeURIComponent(codigoLinha)}`);
+  const clientInstance = await getClient();
+  const { data } = await clientInstance.get(`/Posicao/Linha?codigoLinha=${encodeURIComponent(codigoLinha)}`);
   return data;
 }
 
 /** Previsão por código de parada. */
 export async function previsaoPorParada(codigoParada: string) {
-  await ensureAuth();
-  const { data } = await client.get(`/Previsao/Parada?codigoParada=${encodeURIComponent(codigoParada)}`);
+  const clientInstance = await getClient();
+  const { data } = await clientInstance.get(`/Previsao/Parada?codigoParada=${encodeURIComponent(codigoParada)}`);
   return data;
 }
 
 /** Previsão por parada + código numérico da linha (cl). */
 export async function previsaoPorParadaELinha(codigoParada: string, codigoLinha: string) {
-  await ensureAuth();
-  const { data } = await client.get(
+  const clientInstance = await getClient();
+  const { data } = await clientInstance.get(
     `/Previsao/ParadaLinha?codigoParada=${encodeURIComponent(codigoParada)}&codigoLinha=${encodeURIComponent(codigoLinha)}`
   );
   return data;
@@ -75,15 +93,15 @@ export async function previsaoPorParadaELinha(codigoParada: string, codigoLinha:
 
 /** Buscar paradas por termo/lugar/rua. */
 export async function buscarParadaPorTermo(termos: string) {
-  await ensureAuth();
-  const { data } = await client.get(`/Parada/Buscar?termosBusca=${encodeURIComponent(termos)}`);
+  const clientInstance = await getClient();
+  const { data } = await clientInstance.get(`/Parada/Buscar?termosBusca=${encodeURIComponent(termos)}`);
   return data; // array de paradas
 }
 
 /** (Opcional) Paradas atendidas por uma linha (cl). */
 export async function buscarParadasPorLinha(codigoLinha: string) {
-  await ensureAuth();
-  const { data } = await client.get(`/Parada/BuscarParadasPorLinha?codigoLinha=${encodeURIComponent(codigoLinha)}`);
+  const clientInstance = await getClient();
+  const { data } = await clientInstance.get(`/Parada/BuscarParadasPorLinha?codigoLinha=${encodeURIComponent(codigoLinha)}`);
   return data;
 }
 
